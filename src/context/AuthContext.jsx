@@ -1,0 +1,142 @@
+import React, { createContext, useContext, useState, useEffect } from "react";
+
+// 1. Khởi tạo Context
+const AuthContext = createContext(null);
+
+// 2. Mock Data (Giả lập Database của Backend)
+async function mockLoginAPI(email, password) {
+  const USERS = [
+    {
+      email: "kieuminh@gmail.com",
+      password: "123",
+      role: "admin",
+      id: "A00001",
+      name: "Kiều Minh",
+    },
+    {
+      email: "other@gmail.com",
+      password: "123",
+      role: "other",
+      id: "S00001",
+      name: "Nhân Viên",
+    },
+    {
+      email: "tutor@gmail.com",
+      password: "123",
+      role: "tutor",
+      id: "1813342",
+      name: "Tutor",
+    },
+    {
+      email: "minhthu@gmail.com",
+      password: "123",
+      role: "student",
+      id: "2313342",
+      name: "Minh Thu",
+    },
+    {
+      email: "student@gmail.com",
+      password: "123",
+      role: "student",
+      name: "Kiều Tấn Anh Minh",
+      id: "2312065",
+    },
+    // {
+    //   email: "dpv@gmail.com",
+    //   password: "123",
+    //   role: "coordinator",
+    //   id: "D00001",
+    //   name: "Điều phối viên",
+    // },
+  ];
+
+  const foundUser = USERS.find((u) => u.email === email);
+
+  if (!foundUser || foundUser.password !== password) {
+    return { success: false, message: "Email hoặc mật khẩu không chính xác!" };
+  }
+
+  // Không trả password ra ngoài
+  const safeUser = {
+    email: foundUser.email,
+    role: foundUser.role,
+    name: foundUser.name,
+  };
+
+  return { success: true, user: safeUser };
+}
+
+export const AuthProvider = ({ children }) => {
+  // 3. State lưu trữ thông tin user hiện tại
+  // null = chưa login, Object = đã login
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // 4. Persistence (Giữ trạng thái khi F5 / Refresh trang)
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
+  }, []);
+
+  // ===== LOGIN =====
+  const login = async (email, password) => {
+    // Tìm user trong mảng MOCK_USERS
+    const res = await mockLoginAPI(email, password);
+
+    if (!res.success) {
+      return res;
+    }
+
+    setUser(res.user);
+    localStorage.setItem("user", JSON.stringify(res.user));
+
+    return { success: true };
+  };
+
+  // 6. Hàm Logout
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("user_info");
+  };
+
+  // ===== Role Helpers =====
+  const hasRole = (roles) => {
+    if (!user) return false;
+    if (!Array.isArray(roles)) roles = [roles];
+    return roles.includes(user.role);
+  };
+
+  const isAdmin = () => hasRole("admin");
+  const isStaff = () => hasRole("staff");
+  const isTutor = () => hasRole("tutor");
+  const isStudent = () => hasRole("student");
+  // const isCoordinator = () => hasRole("coordinator");
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        hasRole,
+        isAdmin,
+        isStaff,
+        isTutor,
+        // isCoordinator,
+        isStudent,
+        loading,
+      }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
+};
+
+// 8. Custom Hook để dùng nhanh ở các component khác
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
